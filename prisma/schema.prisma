@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  name         String
+  passwordHash String
+  role         Role          @default(STUDENT)
+  createdAt    DateTime      @default(now())
+  groupMembers GroupMember[]
+  advisedGroups Group[]      @relation("AdviserGroups")
+  gradingSheets GradingSheet[]
+  comments     Comment[]
+}
+
+model Group {
+  id          Int           @id @default(autoincrement())
+  name        String
+  adviserId   Int?
+  adviser     User?         @relation("AdviserGroups", fields: [adviserId], references: [id])
+  createdAt   DateTime      @default(now())
+  members     GroupMember[]
+  proposal    Proposal?
+}
+
+model GroupMember {
+  id       Int   @id @default(autoincrement())
+  userId   Int
+  groupId  Int
+  user     User  @relation(fields: [userId], references: [id])
+  group    Group @relation(fields: [groupId], references: [id])
+
+  @@unique([userId, groupId])
+}
+
+model Proposal {
+  id           Int           @id @default(autoincrement())
+  title        String
+  abstract     String
+  status       ProposalStatus @default(DRAFT)
+  groupId      Int           @unique
+  group        Group         @relation(fields: [groupId], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  documents    Document[]
+  kanbanTasks  KanbanTask[]
+  gradingSheets GradingSheet[]
+  comments     Comment[]
+}
+
+model Document {
+  id         Int      @id @default(autoincrement())
+  proposalId Int
+  filename   String
+  url        String
+  uploadedAt DateTime @default(now())
+  proposal   Proposal @relation(fields: [proposalId], references: [id])
+}
+
+model KanbanTask {
+  id          Int        @id @default(autoincrement())
+  proposalId  Int
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  position    Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  proposal    Proposal   @relation(fields: [proposalId], references: [id])
+}
+
+model GradingSheet {
+  id         Int           @id @default(autoincrement())
+  proposalId Int
+  graderId   Int
+  stage      GradingStage
+  criteria   String
+  scores     String
+  totalScore Float
+  remarks    String?
+  createdAt  DateTime      @default(now())
+  proposal   Proposal      @relation(fields: [proposalId], references: [id])
+  grader     User          @relation(fields: [graderId], references: [id])
+
+  @@unique([proposalId, graderId, stage])
+}
+
+model Comment {
+  id         Int      @id @default(autoincrement())
+  proposalId Int
+  authorId   Int
+  content    String
+  createdAt  DateTime @default(now())
+  proposal   Proposal @relation(fields: [proposalId], references: [id])
+  author     User     @relation(fields: [authorId], references: [id])
+}
+
+enum Role {
+  STUDENT
+  ADVISER
+  PANEL
+  ADMIN
+}
+
+enum ProposalStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum GradingStage {
+  PROPOSAL
+  FINAL_DEFENSE
+}
